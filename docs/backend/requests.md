@@ -1,0 +1,3 @@
+The following requests must exist in the backend:
+1. POST /create with "name" and "max players" arguments. Creation of a new multiplayer server "hub" where a user is given a code that they can give to others to connect to this hub. It must be ensured that a hub is deleted after a certain timeframe for inactivity, and also a reasonable limit as to total lifespan of a hub even in the case of constant connections to prevent abuse (perhaps 1 day). 
+2. For connecting to a hub, it's preferable to use web sockets to have a constant stream between the server and the clients rather than isolated requests back and forth.
