@@ -1,16 +1,23 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
-	"github.com/JGLTechnologies/gin-rate-limit"
+	ratelimit "github.com/JGLTechnologies/gin-rate-limit"
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
+
+type InputDirectionMessage struct {
+	HubID     string    `json:"HubID"`
+	ClientID  string    `json:"ClientID"`
+	Direction Direction `json:"direction"`
+}
 
 func keyFunc(c *gin.Context) string {
 	return c.ClientIP()
@@ -94,8 +101,27 @@ func handleWebSocket(c *gin.Context, hubManager *HubManager) {
 	}()
 
 	for {
-		if _, _, err := conn.Read(c.Request.Context()); err != nil {
-			return
+		msgType, msg, err := conn.Read(c.Request.Context())
+
+		if err != nil {
+			continue 
 		}
+
+		if msgType != websocket.MessageText {
+			continue
+		}
+
+		if string(msg) == "quit" {
+			hubManager.RemoveClient(hubID, client.ID)
+			conn.CloseNow()
+			continue  
+		}
+
+		var input InputDirectionMessage
+		if err := json.Unmarshal(msg, &input); err != nil {
+			continue
+		}
+
+		client.SetDirection(input.Direction)
 	}
 }

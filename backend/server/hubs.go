@@ -12,10 +12,21 @@ import (
 
 var ErrHubCreationRateLimited = errors.New("hub creation rate limited")
 
+type Direction string
+
+// Enumerate the allowed Direction values
+const (
+	Left  Direction = "left"
+	Right Direction = "right"
+	Up    Direction = "up"
+	Down  Direction = "down"
+)
+
 // Client is one user connected to a hub for the lifetime of its WebSocket.
 type Client struct {
-	ID   string
-	Conn *websocket.Conn
+	ID            string
+	Conn          *websocket.Conn
+	CurrDirection Direction
 }
 
 // Hub owns the clients currently connected to one game session.
@@ -23,9 +34,12 @@ type Hub struct {
 	ID         string
 	AccessCode string
 	CreatedAt  time.Time
+	mu         sync.RWMutex
+	clients    map[string]*Client
+}
 
-	mu      sync.RWMutex
-	clients map[string]*Client
+func (c *Client) SetDirection(NewDirection Direction) {
+	c.CurrDirection = NewDirection
 }
 
 func (h *Hub) AddClient(client *Client) {
@@ -74,7 +88,7 @@ type HubManager struct {
 	doneJanitor     chan struct{}
 }
 
-func NewHubManager(maxHubAge, rateWindow time.Duration, rateLimit int) *HubManager {
+func NewHubManager(maxHubAge time.Duration, rateWindow time.Duration, rateLimit int) *HubManager {
 	if maxHubAge <= 0 {
 		maxHubAge = time.Hour
 	}
@@ -130,7 +144,7 @@ func (m *HubManager) Hub(id string) (*Hub, bool) {
 	return hub, ok
 }
 
-func (m *HubManager) RemoveClient(hubID, clientID string) {
+func (m *HubManager) RemoveClient(hubID string, clientID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	hub, ok := m.hubs[hubID]
@@ -145,7 +159,7 @@ func (m *HubManager) Close() {
 }
 
 func (m *HubManager) runJanitor() {
-	interval := m.maxHubAge / 10 
+	interval := m.maxHubAge / 10
 	if interval > time.Minute {
 		interval = time.Minute
 	}
@@ -165,7 +179,7 @@ func (m *HubManager) runJanitor() {
 	}
 }
 
-// Delete all hubs that either have a connected client count of 0 or are past their max age. 
+// Delete all hubs that either have a connected client count of 0 or are past their max age.
 func (m *HubManager) deleteExpired(now time.Time) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -181,7 +195,7 @@ func (m *HubManager) deleteExpired(now time.Time) {
 	}
 }
 
-// Generate a random ID for a hub 
+// Generate a random ID for a hub
 func randomID() string {
 	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
