@@ -29,7 +29,7 @@ func TestStartServer(t *testing.T) {
 		StartServer()
 	}()
 	loadEnv()
-	serverAddr := os.Getenv("SERVER_ADDRESS")
+	serverAddr := os.Getenv("BASE_ADDRESS") + ":" + os.Getenv("PORT")
 	data := map[string]string{
 		"name":        "Xander's Server",
 		"max_players": "5",
@@ -52,4 +52,5 @@ func TestStartServer(t *testing.T) {
 
 	bodyString := string(bodyBytes)
 	fmt.Println(bodyString)
+	// TODO: Have to add actual assertions 
 }
